@@ -10,6 +10,8 @@ const teamSchema = new mongoose.Schema({
     pokeId: Number,
     name: String
   }],
+  // Lié au User MongoDB propriétaire de l'équipe (Phase 3)
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

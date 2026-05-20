@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Team = require('../models/Team');
+const requireOwner = require('../middleware/requireOwner');
 
 // GET toutes les équipes
 router.get('/', async (req, res) => {
@@ -26,7 +27,7 @@ router.get('/:id', async (req, res) => {
 // POST créer une équipe
 router.post('/', async (req, res) => {
   try {
-    const team = new Team(req.body);
+    const team = new Team({ ...req.body, userId: req.user._id });
     await team.save();
     res.status(201).json(team);
   } catch (err) {
@@ -35,7 +36,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT mettre à jour une équipe
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireOwner(Team), async (req, res) => {
   try {
     const team = await Team.findByIdAndUpdate(
       req.params.id,
@@ -50,7 +51,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE une équipe
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireOwner(Team), async (req, res) => {
   try {
     const team = await Team.findByIdAndDelete(req.params.id);
     if (!team) return res.status(404).json({ error: 'Team not found' });

@@ -21,7 +21,9 @@ const battleSchema = new mongoose.Schema({
     eliminated: { type: Boolean, default: false }
   }],
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
+  // Utilisateur ayant créé le combat (requis pour les droits de suppression — Phase 3)
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 });
 
 module.exports = mongoose.model('Battle', battleSchema);
