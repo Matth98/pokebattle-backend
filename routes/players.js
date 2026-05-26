@@ -75,6 +75,28 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PATCH /:id/pokemon — met à jour uniquement le roster Pokémon d'un joueur.
+// Exception aux règles de propriété : tout utilisateur authentifié peut appeler
+// cet endpoint. Usage principal : sync automatique des rosters lors de la
+// création d'un combat (les 2 joueurs reçoivent leurs nouveaux Pokémon).
+router.patch('/:id/pokemon', async (req, res) => {
+  try {
+    const { pokemon } = req.body;
+    if (!Array.isArray(pokemon)) {
+      return res.status(400).json({ error: '"pokemon" doit être un tableau' });
+    }
+    const player = await Player.findByIdAndUpdate(
+      req.params.id,
+      { pokemon, updatedAt: Date.now() },
+      { new: true }
+    );
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+    res.json(player);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // PUT mettre à jour un joueur
 router.put('/:id', requireOwner(Player), async (req, res) => {
   try {
