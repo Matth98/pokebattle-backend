@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Player = require('../models/Player');
 const Battle = require('../models/Battle');
+const User = require('../models/User');
 const requireOwner = require('../middleware/requireOwner');
 
 // POST recompute-stats : recalcule les stats victoires/défaites de chaque joueur
@@ -118,12 +119,53 @@ router.put('/:id', requireOwner(Player), async (req, res) => {
   }
 });
 
-// DELETE un joueur
+// DELETE un joueur — cascade : supprime aussi les combats liés, ajuste les stats
+// des autres joueurs concernés, et libère le playerId du User lié.
 router.delete('/:id', requireOwner(Player), async (req, res) => {
+  const playerId = req.params.id;
   try {
-    const player = await Player.findByIdAndDelete(req.params.id);
+    const player = await Player.findById(playerId);
     if (!player) return res.status(404).json({ error: 'Player not found' });
-    res.json({ message: 'Player deleted' });
+
+    // 1) Récupère tous les combats impliquant ce joueur
+    const battles = await Battle.find({
+      $or: [{ player1: playerId }, { player2: playerId }],
+    });
+
+    // 2) Pour chaque combat avec un gagnant, annule les stats du joueur adverse
+    //    (le joueur supprimé disparaît, mais l'adversaire conserverait sinon un
+    //     win/loss fantôme).
+    const statsOps = battles
+      .filter((b) => b.winner && b.player1 && b.player2)
+      .flatMap((b) => {
+        const winnerId = b.winner === 'player1' ? b.player1 : b.player2;
+        const loserId  = b.winner === 'player1' ? b.player2 : b.player1;
+        // On n'ajuste que le joueur qui N'EST PAS supprimé
+        const ops = [];
+        if (String(winnerId) !== String(playerId))
+          ops.push(Player.updateOne({ _id: winnerId }, { $inc: { 'stats.wins': -1 } }));
+        if (String(loserId) !== String(playerId))
+          ops.push(Player.updateOne({ _id: loserId }, { $inc: { 'stats.losses': -1 } }));
+        return ops;
+      });
+    await Promise.all(statsOps);
+
+    // 3) Supprime les combats liés
+    const battleIds = battles.map((b) => b._id);
+    if (battleIds.length > 0) {
+      await Battle.deleteMany({ _id: { $in: battleIds } });
+    }
+
+    // 4) Libère le playerId dans le document User lié (s'il existe)
+    await User.updateMany({ playerId: playerId }, { $set: { playerId: null } });
+
+    // 5) Supprime le joueur
+    await Player.findByIdAndDelete(playerId);
+
+    res.json({
+      message: 'Player deleted',
+      battlesDeleted: battleIds.length,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

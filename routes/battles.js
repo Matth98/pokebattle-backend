@@ -3,7 +3,6 @@ const router = express.Router();
 const Battle = require('../models/Battle');
 const Player = require('../models/Player');
 const requireBattleParticipant = require('../middleware/requireBattleParticipant');
-const requireBattleCreator     = require('../middleware/requireBattleCreator');
 
 // Helper : applique +1 ou -1 au gagnant et au perdant.
 // `delta` doit valoir 1 (combat ajouté) ou -1 (combat annulé / décrément).
@@ -129,7 +128,7 @@ router.put('/:id', requireBattleParticipant, async (req, res) => {
 });
 
 // DELETE un combat
-router.delete('/:id', requireBattleCreator, async (req, res) => {
+router.delete('/:id', requireBattleParticipant, async (req, res) => {
   try {
     const battle = await Battle.findByIdAndDelete(req.params.id);
     if (!battle) return res.status(404).json({ error: 'Battle not found' });
